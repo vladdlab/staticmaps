@@ -16,9 +16,13 @@
       "location": true
     },
     "rules": {
+      "linebreak-style": ["error", "windows"],
       "no-underscore-dangle": 0,
+      "no-continue": 0,
       "no-plusplus": 0,
-      "no-console": 0
+      "no-console": 0,
+      "no-bitwise": 0
+
     },
     "env": {
       "node": true,
