@@ -57,8 +57,11 @@ export default class Image {
   }
 
   async draw(tiles) {
+    console.log('Start baselayer');
+    const baselayer1 = performance.now();
     // Generate baseimage
     const baselayer = sharp({
+      limitInputPixels: false,
       create: {
         width: this.width,
         height: this.height,
@@ -71,6 +74,8 @@ export default class Image {
     // Save baseImage as buffer
     let tempBuffer = await baselayer.png().toBuffer();
 
+    console.log('Start prepare tiles');
+    const preparetiles1 = performance.now();
     // Prepare tiles for composing baselayer
     const tileParts = [];
     tiles.forEach((tile, i) => {
@@ -78,7 +83,11 @@ export default class Image {
     });
 
     const preparedTiles = (await Promise.all(tileParts)).filter((v) => v.success);
+    const preparetiles2 = performance.now();
+    console.log(`Finish prepare tiles. Took ${preparetiles2 - preparetiles1} milliseconds.`);
 
+    console.log('Start compose base layer');
+    const compose1 = performance.now();
     // Compose all prepared tiles to the baselayer
     const preparedTilesForSharp = preparedTiles
       .filter((preparedTile) => !!preparedTile) // remove non-existing tiles
@@ -89,11 +98,16 @@ export default class Image {
         return { input: data, ...position };
       });
 
-    tempBuffer = await sharp(tempBuffer)
+    tempBuffer = await sharp(tempBuffer, { limitInputPixels: false })
       .composite(preparedTilesForSharp)
       .toBuffer();
 
+    const compose2 = performance.now();
+    console.log(`Finish compose base layer. Took ${compose2 - compose1} milliseconds.`);
+
     this.image = tempBuffer;
+    const baselayer2 = performance.now();
+    console.log(`Finish baselayer. Took ${baselayer2 - baselayer1} milliseconds.`);
     return true;
   }
 
@@ -105,11 +119,12 @@ export default class Image {
     const outputOptions = outOpts;
     outputOptions.quality = outputOptions.quality || this.quality;
     switch (format.toLowerCase()) {
-      case 'webp': await sharp(this.image).webp(outputOptions).toFile(fileName); break;
+      case 'webp': await sharp(this.image, { limitInputPixels: false }).webp(outputOptions).toFile(fileName); break;
       case 'jpg':
-      case 'jpeg': await sharp(this.image).jpeg(outputOptions).toFile(fileName); break;
+      case 'jpeg': await sharp(this.image, { limitInputPixels: false }).jpeg(outputOptions).toFile(fileName); break;
       case 'png':
-      default: await sharp(this.image).png(outputOptions).toFile(fileName);
+      default:
+        await sharp(this.image, { limitInputPixels: false }).png(outputOptions).toFile(fileName);
     }
   }
 
@@ -120,11 +135,11 @@ export default class Image {
     const outputOptions = outOpts;
     outputOptions.quality = outputOptions.quality || this.quality;
     switch (mime.toLowerCase()) {
-      case 'image/webp': return sharp(this.image).webp(outputOptions).toBuffer();
+      case 'image/webp': return sharp(this.image, { limitInputPixels: false }).webp(outputOptions).toBuffer();
       case 'image/jpeg':
-      case 'image/jpg': return sharp(this.image).jpeg(outputOptions).toBuffer();
+      case 'image/jpg': return sharp(this.image, { limitInputPixels: false }).jpeg(outputOptions).toBuffer();
       case 'image/png':
-      default: return sharp(this.image).png(outputOptions).toBuffer();
+      default: return sharp(this.image, { limitInputPixels: false }).png(outputOptions).toBuffer();
     }
   }
 }
