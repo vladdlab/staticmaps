@@ -58,7 +58,6 @@ export default class Image {
 
   async draw(tiles) {
     console.log('Start baselayer');
-    const baselayer1 = performance.now();
     // Generate baseimage
     const baselayer = sharp({
       limitInputPixels: false,
@@ -75,7 +74,6 @@ export default class Image {
     let tempBuffer = await baselayer.png().toBuffer();
 
     console.log('Start prepare tiles');
-    const preparetiles1 = performance.now();
     // Prepare tiles for composing baselayer
     const tileParts = [];
     tiles.forEach((tile, i) => {
@@ -83,11 +81,9 @@ export default class Image {
     });
 
     const preparedTiles = (await Promise.all(tileParts)).filter((v) => v.success);
-    const preparetiles2 = performance.now();
-    console.log(`Finish prepare tiles. Took ${preparetiles2 - preparetiles1} milliseconds.`);
+    console.log('Finish prepare tiles.');
 
     console.log('Start compose base layer');
-    const compose1 = performance.now();
     // Compose all prepared tiles to the baselayer
     const preparedTilesForSharp = preparedTiles
       .filter((preparedTile) => !!preparedTile) // remove non-existing tiles
@@ -102,12 +98,10 @@ export default class Image {
       .composite(preparedTilesForSharp)
       .toBuffer();
 
-    const compose2 = performance.now();
-    console.log(`Finish compose base layer. Took ${compose2 - compose1} milliseconds.`);
+    console.log('Finish compose base layer.');
 
     this.image = tempBuffer;
-    const baselayer2 = performance.now();
-    console.log(`Finish baselayer. Took ${baselayer2 - baselayer1} milliseconds.`);
+    console.log('Finish baselayer.');
     return true;
   }
 

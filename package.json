@@ -1,10 +1,10 @@
 {
   "name": "staticmaps",
-  "version": "1.10.0",
+  "version": "1.0.3",
   "description": "A Node.js library for creating map images with markers, polylines, polygons and text.",
-  "author": "Stephan Georg <s.georg@hey.com>",
+  "author": "Vladislav Bochmanov <vladislavbochmanov@gmail.com>",
   "license": "MIT",
-  "repository": "github:StephanGeorg/staticmaps",
+  "repository": "github:vladdlab/staticmaps",
   "main": "./dist/staticmaps.js",
   "directories": {
     "test": "test"
@@ -23,9 +23,9 @@
     "maps"
   ],
   "bugs": {
-    "url": "https://github.com/StephanGeorg/staticmaps/issues"
+    "url": "https://github.com/vladdlab/staticmaps/issues"
   },
-  "homepage": "https://github.com/StephanGeorg/staticmaps#readme",
+  "homepage": "https://github.com/vladdlab/staticmaps#readme",
   "dependencies": {
     "@babel/runtime": "^7.18.9",
     "@turf/bbox": "^6.5.0",

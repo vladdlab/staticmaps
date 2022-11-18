@@ -187,7 +187,6 @@ function getHandler(type) {
 async function drawSVG(features, type, mapOptions) {
   if (!features.length) return false;
   console.log(`Start drawing ${type}. Array length - ${features.length}`);
-  const t1 = performance.now();
   const svgFunction = getHandler(type);
 
   const layer = sharp({
@@ -221,8 +220,7 @@ async function drawSVG(features, type, mapOptions) {
   });
   const layerPromise = layer.composite(processedChunks).toBuffer();
   layerPromise.then(() => {
-    const t2 = performance.now();
-    console.log(`Finish drawing ${type}. Took ${t2 - t1} milliseconds.`);
+    console.log(`Finish drawing ${type}.`);
   });
   return layerPromise;
 }

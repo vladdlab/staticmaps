@@ -281,21 +281,17 @@ class StaticMaps {
     }
 
     console.log('Start downloading tiles');
-    const download1 = performance.now();
     const tiles = await this.getTiles(result);
-    const download2 = performance.now();
-    console.log(`Finish downloading tiles. Took ${download2 - download1} milliseconds.`);
+    console.log('Finish downloading tiles.');
     return this.image.draw(tiles.filter((v) => v.success).map((v) => v.tile));
   }
 
   async composeLayers() {
     console.log('Start final compose');
-    const t1 = performance.now();
     this.image.image = await sharp(this.image.image, { limitInputPixels: false })
       .composite([{ input: this.svgLayer, limitInputPixels: false }])
       .toBuffer();
-    const t2 = performance.now();
-    console.log(`Finish final compose. Took ${t2 - t1} milliseconds.`);
+    console.log('Finish final compose.');
   }
 
   async drawSvgLayer() {
