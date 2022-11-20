@@ -1,9 +1,7 @@
 import got from 'got';
 import sharp from 'sharp';
-// import find from 'lodash.find';
-// import uniqBy from 'lodash.uniqby';
-// import url from 'url';
 import path from 'path';
+import { mkdirSync, existsSync } from 'fs';
 import * as fsPromises from 'fs/promises';
 
 import Image from './image';
@@ -14,11 +12,13 @@ import Circle from './circle';
 import CustomFigure from './customfigure';
 import Text from './text';
 import Bound from './bound';
+import drawSVG from './preparesvg';
 
 import asyncQueue from './helper/asyncQueue';
 import geoutils from './helper/geo';
 
 const Piscina = require('piscina');
+const { performance } = require('perf_hooks');
 
 class StaticMaps {
   constructor(options = {}) {
@@ -36,13 +36,17 @@ class StaticMaps {
     this.tileRequestHeader = this.options.tileRequestHeader;
     this.tileRequestLimit = Number.isFinite(this.options.tileRequestLimit)
       ? Number(this.options.tileRequestLimit) : 2;
+    this.tilesCacheDir = this.options.tilesCacheDir || path.resolve(__dirname, 'tiles');
     this.reverseY = this.options.reverseY || false;
     const zoomRange = this.options.zoomRange || {};
     this.zoomRange = {
       min: zoomRange.min || 1,
       max: this.options.maxZoom || zoomRange.max || 17, // maxZoom
     };
-    // this.maxZoom = this.options.maxZoom; DEPRECATED: use zoomRange.max instead
+
+    // # progress
+    this.progress = 0;
+    this.progressFunc = this.options.progressFunc || function logProgress(progress) { console.log(`Progress: ${progress}`); };
 
     // # features
     this.markers = [];
@@ -58,6 +62,19 @@ class StaticMaps {
     this.centerX = 0;
     this.centerY = 0;
     this.zoom = 0;
+
+    if (!existsSync(this.tilesCacheDir)) {
+      mkdirSync(this.tilesCacheDir, { recursive: true });
+    }
+    if (!existsSync(`${this.tilesCacheDir}/256`)) {
+      mkdirSync(`${this.tilesCacheDir}/256`);
+    }
+    if (!existsSync(`${this.tilesCacheDir}/512`)) {
+      mkdirSync(`${this.tilesCacheDir}/512`);
+    }
+    if (!existsSync(`${this.tilesCacheDir}/1024`)) {
+      mkdirSync(`${this.tilesCacheDir}/1024`);
+    }
   }
 
   addLine(options) {
@@ -281,39 +298,59 @@ class StaticMaps {
     }
 
     console.log('Start downloading tiles');
+    const t1 = performance.now();
     const tiles = await this.getTiles(result);
-    console.log('Finish downloading tiles.');
-    return this.image.draw(tiles.filter((v) => v.success).map((v) => v.tile));
+    const t2 = performance.now();
+    console.log(`Finish downloading tiles. Take ${t2 - t1} ms`);
+    const layerPromise = this.image.draw(tiles.filter((v) => v.success).map((v) => v.tile));
+    layerPromise.then(() => {
+      if (this.progress === 5) {
+        this.progress = 6;
+      } else {
+        this.progress = 5;
+      }
+      this.progressFunc(this.progress);
+    });
+    return layerPromise;
   }
 
   async composeLayers() {
     console.log('Start final compose');
+    const t1 = performance.now();
     this.image.image = await sharp(this.image.image, { limitInputPixels: false })
       .composite([{ input: this.svgLayer, limitInputPixels: false }])
       .toBuffer();
-    console.log('Finish final compose.');
+
+    const t2 = performance.now();
+    console.log(`Finish final compose. Take ${t2 - t1} ms.`);
+    this.progress = 7;
+    this.progressFunc(this.progress);
   }
 
   async drawSvgLayer() {
-    await this.drawFeatures();
+    const layers = this.drawFeatures();
 
     const worker = new Piscina({
       filename: path.resolve(__dirname, 'worker.js'),
     });
 
     this.svgLayer = await worker.run({
-      svgLayers: this.svgLayers,
+      svgLayers: layers,
       width: this.width,
       height: this.height,
     });
+    if (this.progress === 5) {
+      this.progress = 6;
+    } else {
+      this.progress = 5;
+    }
+    this.progressFunc(this.progress);
   }
 
   /**
    *  Draw all features to the basemap
    */
-  async drawFeatures() {
-    const pool = new Piscina();
-    const options = { filename: path.resolve(__dirname, 'worker-pool.js') };
+  drawFeatures() {
     const mapOptions = {
       width: this.width,
       height: this.height,
@@ -323,68 +360,12 @@ class StaticMaps {
       tileSize: this.tileSize,
     };
 
-    const layers = await Promise.all([
-      pool.run({ features: this.lines, type: 'lines', mapOptions }, options),
-      pool.run({ features: this.circles, type: 'circles', mapOptions }, options),
-      pool.run({ features: this.customfigures, type: 'custom', mapOptions }, options),
-    ]);
+    const line = drawSVG(this.lines, 'lines', mapOptions);
+    const circles = drawSVG(this.circles, 'circles', mapOptions);
+    const custom = drawSVG(this.customfigures, 'custom', mapOptions);
 
-    this.svgLayers = [];
-    layers.forEach((layer) => {
-      if (layer) {
-        this.svgLayers.push({ input: layer, limitInputPixels: false });
-      }
-    });
+    return [line, circles, custom];
   }
-
-  /**
-    *   Preloading the icon image
-    */
-  // loadMarker() {
-  //   return new Promise((resolve, reject) => {
-  //     if (!this.markers.length) resolve(true);
-  //     const icons = uniqBy(this.markers.map((m) => ({ file: m.img })), 'file');
-
-  //     let count = 1;
-  //     icons.forEach(async (ico) => {
-  //       const icon = ico;
-  //       const isUrl = !!url.parse(icon.file).hostname;
-  //       try {
-  //         // Load marker from remote url
-  //         if (isUrl) {
-  //           const img = await got.get({
-  //             https: {
-  //               rejectUnauthorized: false,
-  //             },
-  //             url: icon.file,
-  //             responseType: 'buffer',
-  //           });
-  //           icon.data = await sharp(img.body).toBuffer();
-  //         } else {
-  //           // Load marker from local fs
-  //           icon.data = await sharp(icon.file).toBuffer();
-  //         }
-  //       } catch (err) {
-  //         reject(err);
-  //       }
-
-  //       if (count++ === icons.length) {
-  //         // Pre loaded all icons
-  //         this.markers.forEach((mark) => {
-  //           const marker = mark;
-  //           marker.position = [
-  //             this.xToPx(geoutils.lonToX(marker.coord[0], this.zoom)) - marker.offset[0],
-  //             this.yToPx(geoutils.latToY(marker.coord[1], this.zoom)) - marker.offset[1],
-  //           ];
-  //           const imgData = find(icons, { file: marker.img });
-  //           marker.set(imgData.data);
-  //         });
-
-  //         resolve(true);
-  //       }
-  //     });
-  //   });
-  // }
 
   /**
    *  Fetching tile from endpoint
@@ -399,7 +380,7 @@ class StaticMaps {
     };
 
     try {
-      const tileFIle = await fsPromises.readFile(`${__dirname}/tiles/${this.tileSize}/${data.filename}.jpg`);
+      const tileFIle = await fsPromises.readFile(`${this.tilesCacheDir}/${this.tileSize}/${data.filename}.jpg`);
       return {
         success: true,
         tile: {
@@ -416,7 +397,7 @@ class StaticMaps {
         const contentType = headers['content-type'];
         if (!contentType.startsWith('image/')) throw new Error('Tiles server response with wrong data');
 
-        fsPromises.writeFile(`${__dirname}/tiles/${this.tileSize}/${data.filename}.jpg`, body);
+        fsPromises.writeFile(`${this.tilesCacheDir}/${this.tileSize}/${data.filename}.jpg`, body);
 
         return {
           success: true,

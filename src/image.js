@@ -1,6 +1,8 @@
 import sharp from 'sharp';
 import last from 'lodash.last';
 
+const { performance } = require('perf_hooks');
+
 export default class Image {
   constructor(options = {}) {
     this.options = options;
@@ -58,6 +60,7 @@ export default class Image {
 
   async draw(tiles) {
     console.log('Start baselayer');
+    const t1 = performance.now();
     // Generate baseimage
     const baselayer = sharp({
       limitInputPixels: false,
@@ -101,7 +104,8 @@ export default class Image {
     console.log('Finish compose base layer.');
 
     this.image = tempBuffer;
-    console.log('Finish baselayer.');
+    const t2 = performance.now();
+    console.log(`Finish baselayer. Take ${t2 - t1} ms`);
     return true;
   }
 

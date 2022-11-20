@@ -1,8 +1,8 @@
-import chunk from 'lodash.chunk';
-import sharp from 'sharp';
 import geoutils from './helper/geo';
 
-const RENDER_CHUNK_SIZE = 1000;
+const { performance } = require('perf_hooks');
+
+// const RENDER_CHUNK_SIZE = 3000;
 
 /**
     * transform tile number to pixel on image canvas
@@ -68,31 +68,6 @@ function customToSVG(custom, mapOptions) {
 }
 
 /**
- * Render text to SVG
- */
-// function textToSVG(text, mapOptions) {
-//   const mapcoords = [
-//     xToPx(geoutils.lonToX(text.coord[0], mapOptions.zoom)) - text.offset[0],
-//     yToPx(geoutils.latToY(text.coord[1], mapOptions.zoom)) - text.offset[1],
-//   ];
-
-//   return `
-//     <text
-//       x="${mapcoords[0]}"
-//       y="${mapcoords[1]}"
-//       style="fill-rule: inherit; font-family: ${text.font};"
-//       font-size="${text.size}pt"
-//       stroke="${text.color}"
-//       fill="${text.fill ? text.fill : 'none'}"
-//       stroke-width="${text.width}"
-//       text-anchor="${text.anchor}"
-//     >
-//         ${text.text}
-//     </text>
-//   `;
-// }
-
-/**
  *  Render MultiPolygon to SVG
  */
 // function multiPolygonToSVG(multipolygon, mapOptions) {
@@ -119,40 +94,6 @@ function customToSVG(custom, mapOptions) {
 //     stroke="${multipolygon.color}"
 //     fill="${multipolygon.fill ? multipolygon.fill : 'none'}"
 //     stroke-width="${multipolygon.width}"/>`;
-// }
-
-// /**
-//  *  Draw markers to the basemap
-//  */
-// drawMarkers() {
-//   console.log('Start drawing markers');
-//   const t1 = performance.now();
-//   const queue = [];
-//   this.markers.forEach((marker) => {
-//     queue.push(async () => {
-//       const top = Math.round(marker.position[1]);
-//       const left = Math.round(marker.position[0]);
-//       if (
-//         top < 0
-//         || left < 0
-//         || top > this.height
-//         || left > this.width
-//       ) return;
-//       this.image.image = await sharp(this.image.image)
-//         .composite([{
-//           input: marker.imgData,
-//           top,
-//           left,
-//         }])
-//         .toBuffer();
-//     });
-//   });
-//   const queuePromise = asyncQueue(queue);
-//   queuePromise.then(() => {
-//     const t2 = performance.now();
-//     console.log(`Finish drawing markers. Took ${t2 - t1} milliseconds.`);
-//   });
-//   return queuePromise;
 // }
 
 /**
@@ -184,47 +125,28 @@ function getHandler(type) {
   }
 }
 
-async function drawSVG(features, type, mapOptions) {
+function drawSVG(features, type, mapOptions) {
   if (!features.length) return false;
   console.log(`Start drawing ${type}. Array length - ${features.length}`);
+  const t1 = performance.now();
   const svgFunction = getHandler(type);
 
-  const layer = sharp({
-    limitInputPixels: false,
-    create: {
-      width: mapOptions.width,
-      height: mapOptions.height,
-      channels: 4,
-      background: {
-        r: 0, g: 0, b: 0, alpha: 0,
-      },
-    },
-  }).png();
-
-  // Chunk for performance
-  const chunks = chunk(features, RENDER_CHUNK_SIZE);
-
-  const processedChunks = chunks.map((c) => {
-    const svg = `
+  const svg = `
       <svg
         width="${mapOptions.width}px"
         height="${mapOptions.height}px"
         version="1.1"
         xmlns="http://www.w3.org/2000/svg">
-        ${c.map((f) => svgFunction(f, mapOptions)).join('\n')}
+        ${features.map((f) => svgFunction(f, mapOptions)).join('\n')}
       </svg>
     `;
-    return {
-      input: Buffer.from(svg), top: 0, left: 0, limitInputPixels: false,
-    };
+
+  const t2 = performance.now();
+  console.log(`Finish drawing ${type}. Take ${t2 - t1} ms`);
+
+  return ({
+    input: Buffer.from(svg), top: 0, left: 0, limitInputPixels: false,
   });
-  const layerPromise = layer.composite(processedChunks).toBuffer();
-  layerPromise.then(() => {
-    console.log(`Finish drawing ${type}.`);
-  });
-  return layerPromise;
 }
 
-module.exports = async function (options) {
-  return drawSVG(options.features, options.type, options.mapOptions);
-};
+module.exports = drawSVG;

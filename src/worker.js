@@ -1,7 +1,10 @@
 import sharp from 'sharp';
 
+const { performance } = require('perf_hooks');
+
 module.exports = async function ({ svgLayers, width, height }) {
   console.log('Start compose SVG layer');
+  const t1 = performance.now();
   const svgLayerPromise = sharp({
     limitInputPixels: false,
     create: {
@@ -15,7 +18,8 @@ module.exports = async function ({ svgLayers, width, height }) {
   }).png().composite(svgLayers).toBuffer();
 
   svgLayerPromise.then(() => {
-    console.log('Finish compose SVG layer.');
+    const t2 = performance.now();
+    console.log(`Finish compose SVG layer. Take ${t2 - t1} ms.`);
   });
   return svgLayerPromise;
 };

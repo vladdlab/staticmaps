@@ -1,6 +1,6 @@
 {
   "name": "staticmaps",
-  "version": "1.0.3",
+  "version": "1.0.18",
   "description": "A Node.js library for creating map images with markers, polylines, polygons and text.",
   "author": "Vladislav Bochmanov <vladislavbochmanov@gmail.com>",
   "license": "MIT",
@@ -39,7 +39,8 @@
     "lodash.last": "^3.0.0",
     "lodash.uniqby": "^4.7.0",
     "piscina": "^3.2.0",
-    "sharp": "0.30.7"
+    "sharp": "0.30.7",
+    "svg-flatten": "^1.0.1"
   },
   "devDependencies": {
     "@babel/cli": "^7.14.5",
