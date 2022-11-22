@@ -37,12 +37,16 @@ class StaticMaps {
     this.tileRequestLimit = Number.isFinite(this.options.tileRequestLimit)
       ? Number(this.options.tileRequestLimit) : 2;
     this.tilesCacheDir = this.options.tilesCacheDir || path.resolve(__dirname, 'tiles');
+    this.tileExt = this.options.tileExt || 'png';
     this.reverseY = this.options.reverseY || false;
     const zoomRange = this.options.zoomRange || {};
     this.zoomRange = {
       min: zoomRange.min || 1,
       max: this.options.maxZoom || zoomRange.max || 17, // maxZoom
     };
+
+    // # svg layers settings
+    this.svgChunkSize = this.options.svgChunkSize || 1000;
 
     // # progress
     this.progress = 0;
@@ -360,11 +364,11 @@ class StaticMaps {
       tileSize: this.tileSize,
     };
 
-    const line = drawSVG(this.lines, 'lines', mapOptions);
-    const circles = drawSVG(this.circles, 'circles', mapOptions);
-    const custom = drawSVG(this.customfigures, 'custom', mapOptions);
+    const lines = drawSVG(this.lines, 'lines', mapOptions, this.svgChunkSize);
+    const circles = drawSVG(this.circles, 'circles', mapOptions, this.svgChunkSize);
+    const custom = drawSVG(this.customfigures, 'custom', mapOptions, this.svgChunkSize);
 
-    return [line, circles, custom];
+    return lines.concat(circles, custom);
   }
 
   /**
@@ -380,7 +384,7 @@ class StaticMaps {
     };
 
     try {
-      const tileFIle = await fsPromises.readFile(`${this.tilesCacheDir}/${this.tileSize}/${data.filename}.jpg`);
+      const tileFIle = await fsPromises.readFile(`${this.tilesCacheDir}/${this.tileSize}/${data.filename}.${this.tileExt}`);
       return {
         success: true,
         tile: {
@@ -397,7 +401,7 @@ class StaticMaps {
         const contentType = headers['content-type'];
         if (!contentType.startsWith('image/')) throw new Error('Tiles server response with wrong data');
 
-        fsPromises.writeFile(`${this.tilesCacheDir}/${this.tileSize}/${data.filename}.jpg`, body);
+        fsPromises.writeFile(`${this.tilesCacheDir}/${this.tileSize}/${data.filename}.${this.tileExt}`, body);
 
         return {
           success: true,

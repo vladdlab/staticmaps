@@ -1,3 +1,4 @@
+import chunk from 'lodash.chunk';
 import geoutils from './helper/geo';
 
 const { performance } = require('perf_hooks');
@@ -125,28 +126,35 @@ function getHandler(type) {
   }
 }
 
-function drawSVG(features, type, mapOptions) {
+function drawSVG(features, type, mapOptions, chunkSize = 1000) {
   if (!features.length) return false;
   console.log(`Start drawing ${type}. Array length - ${features.length}`);
   const t1 = performance.now();
   const svgFunction = getHandler(type);
 
-  const svg = `
+  const featuresChunks = chunk(features, chunkSize);
+  const svgBuffers = [];
+
+  featuresChunks.forEach((ch) => {
+    const svg = `
       <svg
         width="${mapOptions.width}px"
         height="${mapOptions.height}px"
         version="1.1"
         xmlns="http://www.w3.org/2000/svg">
-        ${features.map((f) => svgFunction(f, mapOptions)).join('\n')}
+        ${ch.map((f) => svgFunction(f, mapOptions)).join('\n')}
       </svg>
     `;
+
+    svgBuffers.push({
+      input: Buffer.from(svg), top: 0, left: 0, limitInputPixels: false,
+    });
+  });
 
   const t2 = performance.now();
   console.log(`Finish drawing ${type}. Take ${t2 - t1} ms`);
 
-  return ({
-    input: Buffer.from(svg), top: 0, left: 0, limitInputPixels: false,
-  });
+  return svgBuffers;
 }
 
 module.exports = drawSVG;

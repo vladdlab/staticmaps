@@ -59,6 +59,7 @@ export default class Image {
   }
 
   async draw(tiles) {
+    console.log(`Tiels amount - ${tiles.length}`);
     console.log('Start baselayer');
     const t1 = performance.now();
     // Generate baseimage
@@ -73,9 +74,15 @@ export default class Image {
         },
       },
     });
+
     // Save baseImage as buffer
     let tempBuffer = await baselayer.png().toBuffer();
-
+    if (tiles.length === 0) {
+      this.image = tempBuffer;
+      const t3 = performance.now();
+      console.log(`Finish baselayer. Take ${t3 - t1} ms`);
+      return true;
+    }
     console.log('Start prepare tiles');
     // Prepare tiles for composing baselayer
     const tileParts = [];
